@@ -1,6 +1,7 @@
 module fastcopy;
 
 import core.stdc.errno;
+import std.file : PreserveAttributes, preserveAttributesDefault;
 
 version(linux)
 {
@@ -64,7 +65,7 @@ private T cenforce(T)(T condition, scope const(char)[] name, scope const(char)* 
 }
 
 
-void fastcopy(string from, string to)
+void fastcopy(string from, string to, PreserveAttributes preserve = preserveAttributesDefault)
     @trusted
 {
     version (linux)
@@ -77,7 +78,7 @@ void fastcopy(string from, string to)
     else
     {
         import std.file : copy;
-        retun copy(from, to);
+        retun copy(from, to, preserve);
     }
 }
 
