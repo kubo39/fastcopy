@@ -78,7 +78,7 @@ void fastcopy(string from, string to, PreserveAttributes preserve = preserveAttr
     else
     {
         import std.file : copy;
-        retun copy(from, to, preserve);
+        copy(from, to, preserve);
     }
 }
 
