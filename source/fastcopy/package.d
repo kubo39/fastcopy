@@ -3,7 +3,9 @@ module fastcopy;
 import core.stdc.errno;
 import std.file : PreserveAttributes, preserveAttributesDefault;
 
-version(linux)
+version(linux) version(X86_64) version = assumeHaveCopyFileRange;
+
+version(assumeHaveCopyFileRange)
 {
     private enum COPY_FILE_RANGE
     {
@@ -22,7 +24,7 @@ version(linux)
         import core.stdc.string : strtok;
         import core.stdc.stdlib : atoi;
 
-        utsname uts;
+        utsname uts = void;
         uname(&uts);
         char* p = uts.release.ptr;
 
@@ -37,11 +39,12 @@ version(linux)
         return false;
     }
 
-    private extern (C) int syscall(size_t ident, size_t n, size_t arg1, size_t arg2, size_t arg3, size_t arg4, size_t arg5) @nogc nothrow;
+    private extern (C) int syscall(size_t ident, size_t n, size_t arg1, size_t arg2, size_t arg3,
+                                   size_t arg4, size_t arg5) @nogc nothrow;
 
     version (X86_64)
         immutable size_t __NR_COPY_FILE_RANGE = 326;
-    else static assert (false);
+    // TODO: else
 }
 
 
@@ -58,7 +61,6 @@ private T cenforce(T)(T condition, scope const(char)[] name, scope const(char)* 
     if (!name)
     {
         import core.stdc.string : strlen;
-
         auto len = namez ? strlen(namez) : 0;
         name = namez[0 .. len].idup;
     }
@@ -70,7 +72,7 @@ private T cenforce(T)(T condition, scope const(char)[] name, scope const(char)* 
 void fastcopy(string from, string to, PreserveAttributes preserve = preserveAttributesDefault)
     @trusted
 {
-    version (linux)
+    version (assumeHaveCopyFileRange)
     {
         import std.string : toStringz;
         auto fromz = from.toStringz();
@@ -84,7 +86,7 @@ void fastcopy(string from, string to, PreserveAttributes preserve = preserveAttr
     }
 }
 
-version(linux)
+version(assumeHaveCopyFileRange)
 private void fastcopyImpl(scope const(char)[] f, scope const(char)[] t,
                           scope const(char)* fromz, scope const(char)* toz)
 @trusted
@@ -132,9 +134,7 @@ private void fastcopyImpl(scope const(char)[] f, scope const(char)[] t,
     stat_t statbufr = void;
     cenforce(fstat(fdr, &statbufr) == 0, t, toz);
 
-    immutable fdw = core.sys.posix.fcntl.open(toz,
-                                              O_CREAT | O_WRONLY,
-                                              octal!666);
+    immutable fdw = core.sys.posix.fcntl.open(toz, O_CREAT | O_WRONLY, octal!666);
     cenforce(fdw != -1, t, toz);
     {
         scope(failure) core.sys.posix.unistd.close(fdw);
@@ -156,9 +156,7 @@ private void fastcopyImpl(scope const(char)[] f, scope const(char)[] t,
         {
             import std.algorithm : min;
             auto left = min(len - written, size_t.max);
-            auto result = copy_file_range(fdr, null,
-                                          fdw, null,
-                                          left, 0);
+            auto result = copy_file_range(fdr, null, fdw, null, left, 0);
             written += result;
         }
     }
