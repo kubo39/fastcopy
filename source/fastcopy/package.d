@@ -99,7 +99,7 @@ private void fastcopyImpl(scope const(char)[] f, scope const(char)[] t,
     import core.atomic;
     import std.conv : octal;
 
-    auto p = atomicLoad(*cast(const shared COPY_FILE_RANGE*) &hasCopyFileRange);
+    COPY_FILE_RANGE p = atomicLoad(*cast(const shared COPY_FILE_RANGE*) &hasCopyFileRange);
     if (p == COPY_FILE_RANGE.UNINITIALIZED)
     {
         p = initCopyFileRange() ? COPY_FILE_RANGE.AVAILABLE
