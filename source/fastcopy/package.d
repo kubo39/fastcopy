@@ -3,10 +3,12 @@ module fastcopy;
 import core.stdc.errno;
 import std.file : PreserveAttributes, preserveAttributesDefault;
 
-version(linux) version(X86_64) version = assumeHaveCopyFileRange;
+version(CRuntime_GLibc) version = assumeHaveCopyFileRange;
 
 version(assumeHaveCopyFileRange)
 {
+    import core.sys.posix.sys.types;
+
     private enum COPY_FILE_RANGE
     {
         UNINITIALIZED,
@@ -17,9 +19,9 @@ version(assumeHaveCopyFileRange)
     private __gshared COPY_FILE_RANGE hasCopyFileRange = COPY_FILE_RANGE.UNINITIALIZED;
     private import core.sys.posix.sys.utsname : utsname;
 
-    private extern (C) int uname(scope utsname* __name) @nogc nothrow;
+    private extern (C) int uname(scope utsname* __name) @nogc nothrow @trusted;
 
-    private bool initCopyFileRange() @nogc nothrow
+    private bool initCopyFileRange() @nogc nothrow @trusted
     {
         import core.stdc.string : strtok;
         import core.stdc.stdlib : atoi;
@@ -39,12 +41,13 @@ version(assumeHaveCopyFileRange)
         return false;
     }
 
-    private extern (C) int syscall(size_t ident, size_t n, size_t arg1, size_t arg2, size_t arg3,
-                                   size_t arg4, size_t arg5) @nogc nothrow;
-
-    version (X86_64)
-        immutable size_t __NR_COPY_FILE_RANGE = 326;
-    // TODO: else
+    private extern (C) ssize_t copy_file_range(
+        int fd_in,
+        off64_t off_in,
+        int fd_out,
+        off64_t off_out,
+        size_t len,
+        uint flags) @nogc nothrow @trusted;
 }
 
 
@@ -112,21 +115,6 @@ private void fastcopyImpl(scope const(char)[] f, scope const(char)[] t,
         copy(f, t);
     }
 
-    int copy_file_range(
-        int fd_in,
-        int* off_in,
-        int fd_out,
-        int* off_out,
-        size_t len,
-        uint flags
-        ) @nogc nothrow
-    {
-        return syscall(__NR_COPY_FILE_RANGE,
-                       fd_in, cast(size_t) off_in,
-                       fd_out, cast(size_t) off_out,
-                       len, flags);
-    }
-
     immutable fdr = core.sys.posix.fcntl.open(fromz, O_RDONLY);
     cenforce(fdr != -1, f, fromz);
     scope(exit) core.sys.posix.unistd.close(fdr);
@@ -170,7 +158,7 @@ private void fastcopyImpl(scope const(char)[] f, scope const(char)[] t,
     cenforce(utime(toz, &utim) != -1, f, fromz);
 }
 
-unittest
+@trusted unittest
 {
     import std.file;
 
