@@ -17,37 +17,27 @@ version(assumeHaveCopyFileRange)
     }
 
     private __gshared COPY_FILE_RANGE hasCopyFileRange = COPY_FILE_RANGE.UNINITIALIZED;
-    private import core.sys.posix.sys.utsname : utsname;
 
-    private extern (C) int uname(scope utsname* __name) @nogc nothrow @trusted;
+    alias copy_file_range_T = ssize_t function(int, off64_t, int, off64_t, size_t, uint) @nogc nothrow @trusted;
+    static copy_file_range_T copy_file_range = null;
 
-    private bool initCopyFileRange() @nogc nothrow @trusted
+    private bool hasCopyFileRangeInGlibc() @nogc nothrow @trusted
     {
-        import core.stdc.string : strtok;
-        import core.stdc.stdlib : atoi;
-
-        utsname uts = void;
-        uname(&uts);
-        char* p = uts.release.ptr;
-
-        auto token = strtok(p, ".");
-        int major = atoi(token);
-        if (major > 4) return true;
-        if (major == 4)
+        extern (C) void initCopyFileRange() @nogc nothrow @trusted
         {
-            token = strtok(p, ".");
-            if (atoi(token) >= 5) return true;
+            import core.sys.posix.dlfcn;
+            void* handle = dlopen(null, RTLD_LAZY);
+            if (handle !is null)
+                copy_file_range = cast(copy_file_range_T) dlsym(handle, "copy_file_range");
         }
+
+        import core.sys.posix.pthread;
+        static pthread_once_t initOnce = PTHREAD_ONCE_INIT;
+        pthread_once(&initOnce, &initCopyFileRange);
+        if (copy_file_range !is null)
+            return true;
         return false;
     }
-
-    private extern (C) ssize_t copy_file_range(
-        int fd_in,
-        off64_t off_in,
-        int fd_out,
-        off64_t off_out,
-        size_t len,
-        uint flags) @nogc nothrow @trusted;
 }
 
 
@@ -105,7 +95,7 @@ private void fastcopyImpl(scope const(char)[] f, scope const(char)[] t,
     static COPY_FILE_RANGE p = atomicLoad(*cast(const shared COPY_FILE_RANGE*) &hasCopyFileRange);
     if (p == COPY_FILE_RANGE.UNINITIALIZED)
     {
-        p = initCopyFileRange() ? COPY_FILE_RANGE.AVAILABLE
+        p = hasCopyFileRangeInGlibc() ? COPY_FILE_RANGE.AVAILABLE
             : COPY_FILE_RANGE.NOT_AVAILABLE;
         atomicStore(*cast(shared COPY_FILE_RANGE*) &hasCopyFileRange, p);
     }
