@@ -102,7 +102,7 @@ private void fastcopyImpl(scope const(char)[] f, scope const(char)[] t,
     import core.atomic;
     import std.conv : octal;
 
-    COPY_FILE_RANGE p = atomicLoad(*cast(const shared COPY_FILE_RANGE*) &hasCopyFileRange);
+    static COPY_FILE_RANGE p = atomicLoad(*cast(const shared COPY_FILE_RANGE*) &hasCopyFileRange);
     if (p == COPY_FILE_RANGE.UNINITIALIZED)
     {
         p = initCopyFileRange() ? COPY_FILE_RANGE.AVAILABLE
@@ -138,13 +138,29 @@ private void fastcopyImpl(scope const(char)[] f, scope const(char)[] t,
     scope(failure) core.stdc.stdio.remove(toz);
     {
         scope(failure) core.sys.posix.unistd.close(fdw);
-        ulong len = statbufr.st_size;
+        ulong maxLength = ulong.max;
         ulong written = 0;
-        while (written < len)
+        while (written < maxLength)
         {
             import std.algorithm : min;
-            auto left = min(len - written, size_t.max);
+            auto left = min(maxLength - written, size_t.max, 0x40_000_000 /* 1GiB */);
             auto result = copy_file_range(fdr, null, fdw, null, left, 0);
+            if (result == -1)
+            {
+                import std.format : format;
+                throw new ErrnoException(format!"Copy from %s to %s"(f, t));
+            }
+            if (result == 0 && written == 0)
+            {
+                // WORKAROUND: several kernel bugs where copy_file_range will fail to copy any bytes and
+                // return 0 insteaf of an error.
+                atomicStore(*cast(shared COPY_FILE_RANGE*) &hasCopyFileRange, COPY_FILE_RANGE.NOT_AVAILABLE);
+                import std.file : copy;
+                copy(from, to, preserve);
+                return;
+            }
+            if (result == 0)
+                break;
             written += result;
         }
     }
