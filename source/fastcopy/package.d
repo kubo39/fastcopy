@@ -103,6 +103,7 @@ private void fastcopyImpl(scope const(char)[] f, scope const(char)[] t,
     {
         import std.file : copy;
         copy(f, t);
+        return;
     }
 
     immutable fdr = core.sys.posix.fcntl.open(fromz, O_RDONLY);
