@@ -16,7 +16,7 @@ version(assumeHaveCopyFileRange)
         AVAILABLE,
     }
 
-    private __gshared COPY_FILE_RANGE hasCopyFileRange = COPY_FILE_RANGE.UNINITIALIZED;
+    private shared COPY_FILE_RANGE hasCopyFileRange = COPY_FILE_RANGE.UNINITIALIZED;
 
     alias copy_file_range_T = ssize_t function(int, off64_t, int, off64_t, size_t, uint) @nogc nothrow @trusted;
     static copy_file_range_T copy_file_range = null;
