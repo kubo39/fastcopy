@@ -34,9 +34,7 @@ version(assumeHaveCopyFileRange)
         import core.sys.posix.pthread;
         static pthread_once_t initOnce = PTHREAD_ONCE_INIT;
         pthread_once(&initOnce, &initCopyFileRange);
-        if (copy_file_range !is null)
-            return true;
-        return false;
+        return copy_file_range !is null;
     }
 }
 
