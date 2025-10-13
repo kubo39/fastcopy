@@ -18,10 +18,10 @@ version(assumeHaveCopyFileRange)
 
     private shared COPY_FILE_RANGE hasCopyFileRange = COPY_FILE_RANGE.UNINITIALIZED;
 
-    alias copy_file_range_T = ssize_t function(int, off64_t, int, off64_t, size_t, uint) @nogc nothrow @trusted;
+    alias copy_file_range_T = extern(C) ssize_t function(int, off64_t, int, off64_t, size_t, uint) @nogc nothrow @system;
     static copy_file_range_T copy_file_range = null;
 
-    private bool hasCopyFileRangeInGlibc() @nogc nothrow @trusted
+    private static bool hasCopyFileRangeInGlibc() @nogc nothrow @trusted
     {
         extern (C) void initCopyFileRange() @nogc nothrow @trusted
         {
